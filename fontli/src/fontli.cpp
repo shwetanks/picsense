@@ -119,20 +119,33 @@ int mkdir_all (char *name) {
     return 0;
 }
 
-int move_file (char* filefullname, char* dst_filename) {
-    if (rename(filefullname, dst_filename))
+int move_file (char* file_fullname, char* dst_filename) {
+    if (rename(file_fullname, dst_filename)) {
+        fprintf(stderr, "\nfile move failed|<%s> to <%s>\n", file_fullname, dst_filename);
         return -1;
+    }
     return 0;
 }
 
-void classify_by_attributes (struct attributes* attrib, char* filefullname) {
+void classify_by_attributes (struct attributes* attrib, char* file_fullname, char* file_basename) {
     char target[256];
-    if (attrib->confidence >= GLOBAL_CONFIDENCE_THRESHOLD) {
-        sprintf(target, "%s/%s/%s", fontli::config()->out_dir, font_confidence_str(static_cast<int>(HIGH_CONFIDENCE)), font_name(static_cast<int>(attrib->font)));
+    if (attrib->confidence >= CONFIDENCE_INTERVAL) {
+        sprintf(target,
+                "%s/%s/%s/%s",
+                fontli::config()->out_dir,
+                font_confidence_str(static_cast<int>(HIGH_CONFIDENCE)),
+                font_name(static_cast<int>(attrib->font)),
+                file_basename);
     } else {
-        sprintf(target, "%s/%s/%s", fontli::config()->out_dir, font_confidence_str(static_cast<int>(LOW_CONFIDENCE)), font_name(static_cast<int>(attrib->font)));
+        sprintf(target,
+                "%s/%s/%s/%s",
+                fontli::config()->out_dir,
+                font_confidence_str(static_cast<int>(LOW_CONFIDENCE)),
+                font_name(static_cast<int>(attrib->font)),
+                file_basename);
     }
-        move_file(filefullname, target);
+    move_file(file_fullname, target);
+    fprintf(stdout, "at %d confidence %s moved to %s\n", attrib->confidence, file_fullname, dirname(target));
 }
 
 int fontli::fontli_execute() {
@@ -153,13 +166,13 @@ int fontli::fontli_execute() {
                        ob.language_overrides,
                        tesseract::PSM_SINGLE_BLOCK);
 
-    char dump_dir[] = "dump";
+    char dump_dir[] = "transformed_images";
     if (0 > mkdir_all(dump_dir))
         return -1;
 
     char required_dirs[256];
-    for (int cr = 1; cr <= LOW_CONFIDENCE; cr++) {
-        for (int ft = 1; ft <= UNKNOWN; ft++) {
+    for (int cr = 0; cr < CONFIDENCE_MAX; cr++) {
+        for (int ft = 0; ft < FONT_MAX; ft++) {
             sprintf(required_dirs, "%s/%s/%s", fontli::config()->out_dir, font_confidence_str(cr), font_name(ft));
             if (0 > mkdir_all(required_dirs))
                 return -1;
@@ -186,13 +199,16 @@ int fontli::fontli_execute() {
             char tr_name[256];
             sprintf(tr_name, "%s/tr_%s", dump_dir, basename(qualified_name));
             struct attributes *attrib = ob.cv_decode(handle, qualified_name, tr_name);
-            classify_by_attributes(attrib, qualified_name);
+            classify_by_attributes(attrib, qualified_name, dirp->d_name);
+            fflush(stdout);
         }
     } else {
         char tr_name[256];
-        sprintf(tr_name, "%s/tr_%s", dump_dir, basename(fontli::config()->image_set));
+        char *filename = basename(fontli::config()->image_set);
+        sprintf(tr_name, "%s/tr_%s", dump_dir, filename);
         struct attributes *attrib = ob.cv_decode(handle, fontli::config()->image_set, tr_name);
-        classify_by_attributes(attrib, fontli::config()->image_set);
+        classify_by_attributes(attrib, fontli::config()->image_set, filename);
+        fflush(stdout);
     }
 
     handle->End();

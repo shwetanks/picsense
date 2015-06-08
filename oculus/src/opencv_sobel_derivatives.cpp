@@ -10,7 +10,7 @@ int main( int argc, char** argv )
 
     Mat src, src_gray;
     Mat grad;
-    char* window_name = "Sobel Demo - Simple Edge Detector";
+    char* window_name = "SobelDerivative:edge_detection";
     int scale = 1;
     int delta = 0;
     int ddepth = CV_16S;

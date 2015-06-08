@@ -21,16 +21,18 @@ struct font_attributes {
 
 
 enum FONT_TYPE {
-    SANS_SERIF = 1,
-    SERIF,
-    MONOSPACE,
-    HANDWRITING,
-    UNKNOWN
+    UNKNOWN     = 0,
+    SANS_SERIF  = 1,
+    SERIF       = 2,
+    MONOSPACE   = 3,
+    HANDWRITING = 4,
+    FONT_MAX
 };
-static inline FONT_TYPE operator|(FONT_TYPE a, FONT_TYPE b) {return static_cast<FONT_TYPE>(static_cast<uint8_t>(a) | static_cast<uint8_t>(b));}
+//static inline FONT_TYPE operator|=(FONT_TYPE a, FONT_TYPE b) {return static_cast<FONT_TYPE>(static_cast<int>(a) | static_cast<int>(b));}
 
 struct attributes {
-    struct font_attributes *fat;
+//    struct font_attributes *fat;
+    char *file_name;
     char *text;
     enum FONT_TYPE font;
     uint8_t confidence;
@@ -48,8 +50,9 @@ static inline char const* font_name (int i) {
 }
 
 enum FONT_CONFIDENCE_RANKS {
-    HIGH_CONFIDENCE = 1,
-    LOW_CONFIDENCE
+    HIGH_CONFIDENCE = 0,
+    LOW_CONFIDENCE  = 1,
+    CONFIDENCE_MAX
 };
 
 static inline char const* font_confidence_str (int i) {
@@ -60,6 +63,7 @@ static inline char const* font_confidence_str (int i) {
     return NULL;
 }
 
-#define GLOBAL_CONFIDENCE_THRESHOLD 50
+#define GLOBAL_CONFIDENCE_THRESHOLD 50 //50/100:50% per word in textline
+#define CONFIDENCE_INTERVAL 6 //8/10:80%
 
 #endif /* _OCULUS_ATTRIBUTE_DEFS_H_ */

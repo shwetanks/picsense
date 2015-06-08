@@ -1,9 +1,8 @@
 #include "tess_functions.h"
 #include "oculus_helpers.h"
+#include "oculus_defs.h"
 
 #include <stdint.h>
-
-
 
 tesseract::TessBaseAPI*
 oc_tesseract::tess_image_handle (const char* tess_training_set, const char* lang, tesseract::PageSegMode mode) {
@@ -23,37 +22,84 @@ void oc_tesseract::get_attributes(tesseract::TessBaseAPI* handle, struct attribu
     tesseract::ResultIterator* ri = handle->GetIterator();
     tesseract::PageIteratorLevel level = tesseract::RIL_WORD;
 
-    uint8_t confidence = 0;
-    FONT_TYPE font_type = UNKNOWN;
+    double confidence = 0;
+
     char txt[1024];
+
+    bool is_bold;
+    bool is_italic;
+    bool is_underlined;
+    bool is_monospace;
+    bool is_serif;
+    bool is_smallcaps;
+
+    int point_size;
+    int font_id;
+    int i;
+    int font_relative = 0;
+    uint32_t num_words;
+
+    FONT_TYPE fonts[] = {UNKNOWN, SANS_SERIF, SERIF, MONOSPACE, HANDWRITING};
+    uint16_t font_freq[FONT_MAX];
+    for (i = 0; i < FONT_MAX; ++i)
+        font_freq[i] = 0;
+
+    attrib->font = UNKNOWN;
+    attrib->confidence = 0;
 
     if (ri != 0) {
         do {
+            int ft = UNKNOWN;
             const char* word = ri->GetUTF8Text(level);
-            if (ri->Confidence(level) < GLOBAL_CONFIDENCE_THRESHOLD)
-                confidence = 0;
-            else
-                confidence = 1;
 
-            attrib->confidence += confidence;
+            if (word != 0 && is_nearly_alphanum(word)) {
+                ++num_words;
+                if (ri->Confidence(level) >= GLOBAL_CONFIDENCE_THRESHOLD)
+                    confidence += ri->Confidence(level);
 
-            if (word != 0) { // && is_nearly_alphanum(word)) {
-                ri->WordFontAttributes (&attrib->fat->is_bold, &attrib->fat->is_italic,
-                                        &attrib->fat->is_underlined, &attrib->fat->is_monospace,
-                                        &attrib->fat->is_serif, &attrib->fat->is_smallcaps,
-                                        &attrib->fat->point_size, &attrib->fat->font_id);
+                ri->WordFontAttributes (&is_bold, &is_italic,
+                                        &is_underlined, &is_monospace,
+                                        &is_serif, &is_smallcaps,
+                                        &point_size, &font_id);
 
-                font_type = font_type | ( attrib->fat->is_serif ? SERIF : SANS_SERIF);
-                if (attrib->fat->is_monospace)
-                    font_type = font_type | MONOSPACE;
+                ft = (1ULL << (is_serif ? SERIF : SANS_SERIF));
+                ++font_freq[ft];
+
+                if (is_monospace)
+                    ++font_freq[MONOSPACE];
 
                 strncat(txt, word, strlen(word));
                 strncat(txt, " ", 1);
+                delete[] word;
             }
-            delete[] word;
         } while (ri->Next(level));
 
         attrib->text = txt;
-        attrib->font = font_type;
+        if (0 < confidence && 0 < num_words)
+            attrib->confidence = ((int)((double)confidence / num_words)) % 10;
+
+        i = 0;
+
+        for (; i < FONT_MAX; ++i) {
+            if ((0 < font_freq[i]) && (font_relative < font_freq[i])) {
+                font_relative = font_freq[i];
+                attrib->font = fonts[i];
+            }
+        }
     }
+    fprintf(stdout, "processed %s to with %u words "
+            "\n\t for attribute set \n \t\t|| "
+            "\n\t\t marked confidence:%f | "
+            "\n\t\t attrib confidence: %u| "
+            "\n\t\t text: %s| "
+            "\n\t\t font: %s at average weight: %d\n",
+            attrib->file_name,
+            num_words,
+            confidence,
+            attrib->confidence,
+            attrib->text,
+            font_name(attrib->font),
+            font_relative);
+
+    delete ri;
 }

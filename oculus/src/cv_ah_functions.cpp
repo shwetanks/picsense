@@ -1,9 +1,9 @@
-#include "cv_functions.h"
+#include "cv_ah_functions.h"
 
 using namespace cv;
 using namespace std;
 
-double cv_functions::compute_skew (Mat& im,Mat& orig) {
+double cv_ah_functions::compute_skew (Mat& im,Mat& orig) {
     double skew = 0;
 
     double max_r = sqrt( pow(.5*im.cols,2) + pow(.5*im.rows,2) );
@@ -52,7 +52,7 @@ double cv_functions::compute_skew (Mat& im,Mat& orig) {
     return skew;
 }
 
-Mat cv_functions::mat_normalize(Mat& im) {
+Mat cv_ah_functions::mat_normalize(Mat& im) {
     // 1) assume white on black and does local thresholding
     // 2) only allow voting top is white and buttom is black(buttom text line)
     Mat thresh;
@@ -74,7 +74,7 @@ Mat cv_functions::mat_normalize(Mat& im) {
     return ret;
 }
 
-Mat cv_functions::rotate_image(Mat& im,double thetaRad) {
+Mat cv_ah_functions::rotate_image(Mat& im,double thetaRad) {
     cv::Mat rotated;
     //double rskew = thetaRad* CV_PI/180;
     double nw = abs(sin(thetaRad))*im.rows+abs(cos(thetaRad))*im.cols;
@@ -91,18 +91,19 @@ Mat cv_functions::rotate_image(Mat& im,double thetaRad) {
 }
 
 
-cv::Mat cv_functions::deskew_image(const char *image_path, char* dump_image) {
+int cv_ah_functions::deskew_image(const char *image_path, char* dump_image) {
     Mat gray;
     Mat im = imread(image_path, 1);
     cvtColor(im,gray,CV_BGR2GRAY);
     cv::threshold(gray, gray, 230, 255, cv::THRESH_OTSU);
 
-    Mat preprocessed = cv_functions::mat_normalize(gray);
-    double skew = cv_functions::compute_skew(preprocessed, im);
+    Mat preprocessed = cv_ah_functions::mat_normalize(gray);
+    double skew = cv_ah_functions::compute_skew(preprocessed, im);
     if (0 != skew) {
-        Mat deskewed = cv_functions::rotate_image(im,skew* CV_PI/180);
+        fprintf(stdout, "image %s skewed by %f\n", image_path, skew);
+        Mat deskewed = cv_ah_functions::rotate_image(im,skew* CV_PI/180);
         imwrite(dump_image, deskewed);
-        return deskewed;
+        return -1;
     }
-    return im;
+    return 0;
 }

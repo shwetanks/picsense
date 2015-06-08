@@ -1,0 +1,12 @@
+bin
+lib
+obj
+dist
+.*.swp
+.settings
+.project
+TAGS
+tags
+fontli/images
+fontli/transformed_images
+fontli/results

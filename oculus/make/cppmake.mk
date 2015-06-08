@@ -17,8 +17,8 @@ OCULUS_INCLUDES=-I$(DEPTH)/../oculus/include
 OCULUS_LIB=-L$(DEPTH)/../oculus/lib $(OCLIBS:%=-l%)
 
 LDFLAGS+= -pthread -lrt $(OCULUS_LIB) -L../lib $(LIBS)
-CFLAGS+= $(OPTFLAGS) $(INCLUDES:%=-I%) -gdwarf-2 -W -Wall -Werror $(OCULUS_INCLUDES)
-CXXFLAGS+= $(OPTFLAGS) $(INCLUDES:%=-I%) -gdwarf-2 -W -Wall -Werror $(OCULUS_INCLUDES)
+CFLAGS+= $(OPTFLAGS) $(INCLUDES:%=-I%) -gdwarf-2 -W -Wall -Wno-ignored-qualifiers  $(OCULUS_INCLUDES)
+CXXFLAGS+= $(OPTFLAGS) $(INCLUDES:%=-I%) -gdwarf-2 -W -Wall -Wno-ignored-qualifiers  $(OCULUS_INCLUDES)
 
 OBJ=$(SRC:%.cpp=$(OBJ_DIR)/%.o)
 DEP=$(SRC:%.cpp=$(OBJ_DIR)/%.d)

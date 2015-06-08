@@ -15,7 +15,7 @@
 #include <sys/stat.h>
 #include <stdbool.h>
 
-#include "likely.h"
+#include "oculus_defs.h"
 #include "oculus_bridge.h"
 
 #endif /* _OCULUS_INCLUDES_H_ */
