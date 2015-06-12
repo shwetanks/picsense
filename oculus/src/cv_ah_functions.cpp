@@ -1,13 +1,19 @@
 #include "cv_ah_functions.h"
 
 using namespace cv;
-using namespace std;
 
-double cv_ah_functions::compute_skew (Mat& im,Mat& orig) {
-    double skew = 0;
+/*
+    apply hough transform to detect skew
 
-    double max_r = sqrt( pow(.5*im.cols,2) + pow(.5*im.rows,2) );
+
+ */
+
+double cv_ah_functions::compute_skew (Mat& im, Mat& orig) {
+    double skew   = 0;
+    double max_r  = sqrt(pow(.5*im.cols,2) + pow(.5*im.rows,2));
     int angleBins = 180;
+
+    // accumulator plane
     Mat acc = Mat::zeros(Size(2*max_r,angleBins), CV_32SC1);
     int cenx = im.cols/2;
     int ceny = im.rows/2;
@@ -29,17 +35,12 @@ double cv_ah_functions::compute_skew (Mat& im,Mat& orig) {
     minMaxLoc(acc, 0, 0, 0, &maxLoc);
     double theta = (double)maxLoc.y/angleBins * CV_PI;
     double rho = maxLoc.x - max_r;
-    if(abs(sin(theta)) < 0.000001) {//check vertical
-        //when vertical, line equation becomes
-        //x = rho
-        //double m = -cos(theta)/sin(theta);
+    if(abs(sin(theta)) < 0.000001) {
         Point2d p1 = Point2d(rho+im.cols/2,0);
         Point2d p2 = Point2d(rho+im.cols/2,im.rows);
         line(orig, p1, p2, Scalar(0, 0, 255), 1);
         skew=90;
     } else {
-        //convert normal form back to slope intercept form
-        //y = mx + b
         double m = -cos(theta)/sin(theta);
         double b = rho/sin(theta) + im.rows/2.-m * im.cols/2.;
         Point2d p1 = Point2d(0,b);
@@ -52,31 +53,46 @@ double cv_ah_functions::compute_skew (Mat& im,Mat& orig) {
     return skew;
 }
 
-Mat cv_ah_functions::mat_normalize(Mat& im) {
-    // 1) assume white on black and does local thresholding
-    // 2) only allow voting top is white and buttom is black(buttom text line)
-    Mat thresh;
-    //thresh=255-im;
-    thresh = im.clone();
-    adaptiveThreshold(thresh, thresh, 255, CV_ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 15, -2);
-    Mat ret = Mat::zeros(im.size(),CV_8UC1);
-    for(int x=1;x<thresh.cols-1;x++) {
-        for(int y=1;y<thresh.rows-1;y++) {
-            bool toprowblack   = thresh.at<uchar>(y-1, x)==0 ||  thresh.at<uchar>(y-1, x-1)==0 || thresh.at<uchar>(y-1, x+1)==0;
-            bool belowrowblack = thresh.at<uchar>(y+1, x)==0 ||  thresh.at<uchar>(y+1, x-1)==0 || thresh.at<uchar>(y+1, x+1)==0;
 
-            uchar pix=thresh.at<uchar>(y,x);
-            if((!toprowblack && pix == 255 && belowrowblack)) {
-                ret.at<uchar>(y,x) = 255;
-            }
+/*
+    Applies cv::adaptiveThreshold transforming a grayscale image to binary image
+
+    for T(x,y) being threshold for each pixel, THRESH_BINARY holds
+
+    dst(x,y) = |---    maxValue if src(x,y) > T(x,y)
+    |---    0 otherwise
+
+    for adaptive method CV_ADAPTIVE_THRESH_GUASSIAN_C, T(x,y) is a weighted-sum (cross-correlation with a Guassian window)
+    of blockSize X blockSize neighbourhood of (x,y) minuc C
+
+    where
+    blockSize: size of pixel neighborhood (15)
+    C: constant subtracted from mean or weighted mean (-2)
+ */
+
+Mat cv_ah_functions::mat_normalize (Mat& input) {
+    Mat thresh = input.clone();
+    cv::adaptiveThreshold(thresh, thresh, 255, CV_ADAPTIVE_THRESH_GAUSSIAN_C, THRESH_BINARY, 15, -2);
+
+    // single-channel unsigned 0 matrix
+    Mat norm = Mat::zeros(input.size(), CV_8UC1);
+    int x, y;
+
+    for(x = 1 ; x < thresh.cols - 1  ; x++) {
+        for(y = 1 ; y < thresh.rows - 1 ; y++) {
+            bool b1 = thresh.at<uchar>(y-1, x) == 0 ||  thresh.at<uchar>(y-1, x-1) == 0 || thresh.at<uchar>(y-1, x+1) == 0;
+            bool b2 = thresh.at<uchar>(y+1, x) == 0 ||  thresh.at<uchar>(y+1, x-1) == 0 || thresh.at<uchar>(y+1, x+1) == 0;
+
+            uchar pix=thresh.at<uchar>(y, x);
+            if((!b1 && pix == 255 && b2))
+                norm.at<uchar>(y, x) = 255;
         }
     }
-    return ret;
+    return norm;
 }
 
 Mat cv_ah_functions::rotate_image(Mat& im,double thetaRad) {
     cv::Mat rotated;
-    //double rskew = thetaRad* CV_PI/180;
     double nw = abs(sin(thetaRad))*im.rows+abs(cos(thetaRad))*im.cols;
     double nh = abs(cos(thetaRad))*im.rows+abs(sin(thetaRad))*im.cols;
     cv::Mat rot_mat = cv::getRotationMatrix2D(Point2d(nw*.5,nh*.5), thetaRad*180/CV_PI, 1);
@@ -93,16 +109,17 @@ Mat cv_ah_functions::rotate_image(Mat& im,double thetaRad) {
 
 int cv_ah_functions::deskew_image(const char *image_path, char* dump_image) {
     Mat gray;
-    Mat im = imread(image_path, 1);
-    cvtColor(im,gray,CV_BGR2GRAY);
+    Mat input_image = imread(image_path, 1);
+    cv::cvtColor(input_image, gray, CV_BGR2GRAY);
     cv::threshold(gray, gray, 230, 255, cv::THRESH_OTSU);
 
-    Mat preprocessed = cv_ah_functions::mat_normalize(gray);
-    double skew = cv_ah_functions::compute_skew(preprocessed, im);
-    if (0 != skew) {
-        fprintf(stdout, "image %s skewed by %f\n", image_path, skew);
-        Mat deskewed = cv_ah_functions::rotate_image(im,skew* CV_PI/180);
-        imwrite(dump_image, deskewed);
+    Mat norm_image = cv_ah_functions::mat_normalize(gray);
+    double gradient = cv_ah_functions::compute_skew(norm_image, input_image);
+
+    if (0 != gradient) {
+        fprintf(stdout, "image %s skewed by %f\n", image_path, gradient);
+        Mat deskewed = cv_ah_functions::rotate_image(input_image, (gradient * CV_PI/180));
+        cv::imwrite(dump_image, deskewed);
         return -1;
     }
     return 0;
