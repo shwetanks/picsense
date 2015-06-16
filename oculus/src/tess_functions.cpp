@@ -68,8 +68,7 @@ void oc_tesseract::get_attributes(tesseract::TessBaseAPI* handle, struct attribu
                 if (is_monospace)
                     ++font_freq[MONOSPACE];
 
-                strncat(txt, word, strlen(word));
-                strncat(txt, " ", 1);
+                snprintf(txt, strlen(word), "%s ", word);
                 delete[] word;
             }
         } while (ri->Next(level));
